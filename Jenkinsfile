@@ -5,7 +5,7 @@ pipeline {
     IMAGE_NAME = "YOUR_DOCKERHUB_USERNAME/website"
     IMAGE_TAG  = "${env.BRANCH_NAME}-${env.BUILD_NUMBER}"
   }
-
+HI bhavbhi//
   stages {
     stage('Checkout') {
       steps {
