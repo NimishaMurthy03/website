@@ -2,50 +2,50 @@ pipeline {
   agent any
 
   environment {
-    IMAGE_NAME = "YOUR_DOCKERHUB_USERNAME/website"
-    IMAGE_TAG  = "${env.BRANCH_NAME}-${env.BUILD_NUMBER}"
+    IMAGE = "YOUR_DOCKERHUB/website"
+    TAG   = "${env.BRANCH_NAME}-${env.BUILD_NUMBER}"
   }
-HI bhavbhi//
+
   stages {
+
     stage('Checkout') {
-      steps {
-        checkout scm
-      }
+      steps { checkout scm }
     }
 
-    stage('Build') {
+    stage('Build Docker Image') {
       steps {
-        echo "Building Docker image: ${IMAGE_NAME}:${IMAGE_TAG}"
-        sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
+        sh "docker build -t ${IMAGE}:${TAG} ."
       }
     }
 
     stage('Test') {
       steps {
-        echo "Running simple tests"
         sh '''
           if [ -f index.html ]; then
-            echo "index.html exists"
+            echo "Tests Passed"
           else
-            echo "index.html missing"; exit 1
+            echo "index.html NOT found"; exit 1
           fi
         '''
       }
     }
 
-    stage('Push to Registry (prod)') {
-      when {
-        branch 'master'
-      }
+    stage('Push & Deploy (Master Only)') {
+      when { branch 'master' }
       steps {
-        echo "Pushing image to DockerHub"
-        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
-          sh '''
-            echo "$PASS" | docker login -u "$USER" --password-stdin
-            docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest
-            docker push ${IMAGE_NAME}:${IMAGE_TAG}
-            docker push ${IMAGE_NAME}:latest
-          '''
+        script {
+          def day = sh(script: "date +%d", returnStdout: true).trim()
+          if(day == "25"){
+            echo "Today is 25th, deploying"
+            withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]){
+              sh 'echo "$PASS" | docker login -u "$USER" --password-stdin'
+              sh "docker push ${IMAGE}:${TAG}"
+            }
+            sh "kubectl apply -f k8s/deployment.yaml"
+            sh "kubectl apply -f k8s/service.yaml"
+          } else {
+            echo "Not release day, skipping deploy"
+          }
         }
       }
     }
